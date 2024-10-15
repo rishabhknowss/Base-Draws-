@@ -8,65 +8,76 @@ import Spinner from 'react-bootstrap/Spinner';
 import Navigation from './components/Navigation';
 
 // ABIs
-import NFT from './abis/NFT.json'
+import NFT from './abis/NFT.json';
 
 // Config
 import config from './config.json';
 
-const pinataApiKey = '1278e7f61dfcfbd23f75';
-const pinataSecretApiKey = '16dcbc981b9210abd5cd3c9b91e267954be04ff9560200c17511ffa19609c522';
+const pinataApiKey = process.env.REACT_APP_PINATA_API_KEY;
+const pinataSecretApiKey = process.env.REACT_APP_PINATA_SECRET_API_KEY;
 
 function App() {
-  const [provider, setProvider] = useState(null)
-  const [account, setAccount] = useState(null)
-  const [nft, setNFT] = useState(null)
+  const [provider, setProvider] = useState(null);
+  const [account, setAccount] = useState(null);
+  const [nft, setNFT] = useState(null);
 
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [image, setImage] = useState(null)
-  const [url, setURL] = useState(null)
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [image, setImage] = useState(null);
+  const [url, setURL] = useState(null);
 
-  const [message, setMessage] = useState("")
-  const [isWaiting, setIsWaiting] = useState(false)
+  const [message, setMessage] = useState("");
+  const [isWaiting, setIsWaiting] = useState(false);
 
   const loadBlockchainData = async () => {
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
-    setProvider(provider)
+    if (window.ethereum) {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      setProvider(provider);
 
-    const network = await provider.getNetwork()
+      const network = await provider.getNetwork();
 
-    const nft = new ethers.Contract(config[network.chainId].nft.address, NFT, provider)
-    setNFT(nft)
-  }
+      // Ensure the network is Base Sepolia (chainId: 84532)
+      if (network.chainId === 84532) {
+        const nft = new ethers.Contract(config[network.chainId].nft.address, NFT, provider);
+        setNFT(nft);
+      } else {
+        window.alert("Please connect to Base Sepolia network");
+      }
+    } else {
+      window.alert("Please install MetaMask");
+    }
+  };
 
   const submitHandler = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (name === "" || description === "") {
-      window.alert("Please provide a name and description")
-      return
+      window.alert("Please provide a name and description");
+      return;
     }
 
-    setIsWaiting(true)
+    setIsWaiting(true);
 
-    // Call AI API to generate an image based on description
-    const imageData = await createImage()
+    // Call AI API to generate an image based on the description
+    const imageData = await createImage();
 
     // Upload image to IPFS (Pinata)
-    const url = await uploadToPinata(imageData)
+    const url = await uploadToPinata(imageData);
 
-    // Mint NFT
-    await mintImage(url)
+    // Mint NFT with the IPFS URL as tokenURI
+    if (url) {
+      await mintImage(url);
+    }
 
-    setIsWaiting(false)
-    setMessage("")
-  }
+    setIsWaiting(false);
+    setMessage("");
+  };
 
   const createImage = async () => {
-    setMessage("Generating Image...")
+    setMessage("Generating Image...");
 
     // You can replace this with different model API's
-    const URL = `https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev`
+    const URL = `https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev`;
 
     // Send the request
     const response = await axios({
@@ -78,23 +89,24 @@ function App() {
         'Content-Type': 'application/json',
       },
       data: JSON.stringify({
-        inputs: description, options: { wait_for_model: true },
+        inputs: description,
+        options: { wait_for_model: true },
       }),
       responseType: 'arraybuffer',
-    })
+    });
 
-    const type = response.headers['content-type']
-    const data = response.data
+    const type = response.headers['content-type'];
+    const data = response.data;
 
-    const base64data = Buffer.from(data).toString('base64')
-    const img = `data:${type};base64,` + base64data // <-- This is so we can render it on the page
-    setImage(img)
+    const base64data = Buffer.from(data).toString('base64');
+    const img = `data:${type};base64,` + base64data; // <-- This is so we can render it on the page
+    setImage(img);
 
-    return data
-  }
+    return data;
+  };
 
   const uploadToPinata = async (imageData) => {
-    setMessage("Uploading Image...")
+    setMessage("Uploading Image...");
 
     const url = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
 
@@ -134,28 +146,46 @@ function App() {
       setMessage("Error uploading file to Pinata");
       return null;
     }
-  }
+  };
 
   const mintImage = async (tokenURI) => {
-    setMessage("Waiting for Mint...")
+    setMessage("Waiting for Mint...");
 
-    const signer = await provider.getSigner()
-    const transaction = await nft.connect(signer).mint(tokenURI, { value: ethers.utils.parseUnits("1", "ether") })
-    await transaction.wait()
-  }
+    try {
+      const signer = await provider.getSigner();
+      const cost = ethers.utils.parseUnits("1", "ether");
+
+      // Call the mint function
+      const transaction = await nft.connect(signer).mint(tokenURI, { value: cost });
+      await transaction.wait();
+
+      setMessage("Mint successful!");
+    } catch (error) {
+      console.error('Error minting NFT:', error);
+      setMessage("Mint failed");
+    }
+  };
 
   useEffect(() => {
-    loadBlockchainData()
-  }, [])
+    loadBlockchainData();
+  }, []);
 
   return (
-    <div >
+    <div>
       <Navigation account={account} setAccount={setAccount} />
 
-      <div className='form' class='frosted-glass' >
-        <form onSubmit={submitHandler}  >
-          <input type="text"  placeholder="Create a name..." onChange={(e) => { setName(e.target.value) }} />
-          <input type="text" placeholder="Create a description..." onChange={(e) => { setDescription(e.target.value) }} />
+      <div className='form' class='frosted-glass'>
+        <form onSubmit={submitHandler}>
+          <input
+            type="text"
+            placeholder="Create a name..."
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Create a description..."
+            onChange={(e) => setDescription(e.target.value)}
+          />
           <input type="submit" value="Create & Mint" />
         </form>
 
