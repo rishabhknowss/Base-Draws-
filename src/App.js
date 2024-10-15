@@ -3,14 +3,12 @@ import { Buffer } from 'buffer';
 import { ethers } from 'ethers';
 import axios from 'axios';
 
-// Components
 import Spinner from 'react-bootstrap/Spinner';
 import Navigation from './components/Navigation';
 
-// ABIs
 import NFT from './abis/NFT.json';
 
-// Config
+
 import config from './config.json';
 
 const pinataApiKey = process.env.REACT_APP_PINATA_API_KEY;
@@ -36,7 +34,7 @@ function App() {
 
       const network = await provider.getNetwork();
 
-      // Ensure the network is Base Sepolia (chainId: 84532)
+     
       if (network.chainId === 84532) {
         const nft = new ethers.Contract(config[network.chainId].nft.address, NFT, provider);
         setNFT(nft);
@@ -58,13 +56,11 @@ function App() {
 
     setIsWaiting(true);
 
-    // Call AI API to generate an image based on the description
     const imageData = await createImage();
 
-    // Upload image to IPFS (Pinata)
     const url = await uploadToPinata(imageData);
 
-    // Mint NFT with the IPFS URL as tokenURI
+   
     if (url) {
       await mintImage(url);
     }
@@ -76,10 +72,9 @@ function App() {
   const createImage = async () => {
     setMessage("Generating Image...");
 
-    // You can replace this with different model API's
     const URL = `https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev`;
 
-    // Send the request
+ 
     const response = await axios({
       url: URL,
       method: 'POST',
@@ -99,7 +94,7 @@ function App() {
     const data = response.data;
 
     const base64data = Buffer.from(data).toString('base64');
-    const img = `data:${type};base64,` + base64data; // <-- This is so we can render it on the page
+    const img = `data:${type};base64,` + base64data; 
     setImage(img);
 
     return data;
@@ -128,7 +123,7 @@ function App() {
 
     try {
       const response = await axios.post(url, data, {
-        maxContentLength: 'Infinity', // needed for large files
+        maxContentLength: 'Infinity', 
         headers: {
           'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
           pinata_api_key: pinataApiKey,
@@ -155,7 +150,6 @@ function App() {
       const signer = await provider.getSigner();
       const cost = ethers.utils.parseUnits("1", "ether");
 
-      // Call the mint function
       const transaction = await nft.connect(signer).mint(tokenURI, { value: cost });
       await transaction.wait();
 
