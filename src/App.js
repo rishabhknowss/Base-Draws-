@@ -191,7 +191,7 @@ function App() {
     <div>
       <Navigation account={account} setAccount={setAccount} />
 
-      <div className='form' className='frosted-glass'>
+      <div className='form' class='frosted-glass'>
         <form onSubmit={submitHandler}>
           <input
             type="text"
@@ -221,7 +221,7 @@ function App() {
       </div>
 
       {!isWaiting && url && (
-        <p>
+        <p className=''>
           View&nbsp;<a href={url} target="_blank" rel="noreferrer">Metadata</a>
         </p>
       )}
