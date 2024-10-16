@@ -8,12 +8,12 @@ Base Draws is a project built using Solidity, JavaScript, Hardhat, Ethers.js, Re
 - [Hardhat](https://hardhat.org/) (Development)
 - Ethers.js (Blockchain Interaction)
 - [React.js](https://reactjs.org/) (Frontend Framework)
-- [NFT.Storage](https://nft.storage/) (Connection to IPFS)
+- [Pinata](https://pinata.cloud/) (Connection to IPFS)
 - [Hugging Face](https://huggingface.co/) (AI Models)
-- Pinata Cloud
 
 
-### BHAI SETUP DEKH LO 
+
+### Setup Instructions 
 - frontend
 ```
 npm install 
@@ -33,3 +33,8 @@ REACT_APP_PRIVATE_KEY=""
 REACT_APP_PINATA_API_KEY=""
 REACT_APP_PINATA_API_KEY_SECRET=""
 ```
+
+### Team
+
+- [Rishabh Rai](https://x.com/rishabhknows)
+- [Saumitra Kapoor](https://x.com/saumitrakpr)
