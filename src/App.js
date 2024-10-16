@@ -7,12 +7,12 @@ import Spinner from 'react-bootstrap/Spinner';
 import Navigation from './components/Navigation';
 
 import NFT from './abis/NFT.json';
-
-
 import config from './config.json';
 
 const pinataApiKey = process.env.REACT_APP_PINATA_API_KEY;
 const pinataSecretApiKey = process.env.REACT_APP_PINATA_SECRET_API_KEY;
+console.log("Pinata API Key:", pinataApiKey);
+console.log("Pinata Secret API Key:", pinataSecretApiKey);
 
 function App() {
   const [provider, setProvider] = useState(null);
@@ -34,7 +34,6 @@ function App() {
 
       const network = await provider.getNetwork();
 
-     
       if (network.chainId === 84532) {
         const nft = new ethers.Contract(config[network.chainId].nft.address, NFT, provider);
         setNFT(nft);
@@ -56,17 +55,22 @@ function App() {
 
     setIsWaiting(true);
 
-    const imageData = await createImage();
+    try {
+      const imageData = await createImage();
 
-    const url = await uploadToPinata(imageData);
+      if (imageData) {
+        const url = await uploadToPinata(imageData);
 
-   
-    if (url) {
-      await mintImage(url);
+        if (url) {
+          await mintImage(url);
+        }
+      }
+    } catch (error) {
+      console.error("Error in submit handler:", error);
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setIsWaiting(false);
     }
-
-    setIsWaiting(false);
-    setMessage("");
   };
 
   const createImage = async () => {
@@ -74,30 +78,35 @@ function App() {
 
     const URL = `https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev`;
 
- 
-    const response = await axios({
-      url: URL,
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.REACT_APP_HUGGING_FACE_API_KEY}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      data: JSON.stringify({
-        inputs: description,
-        options: { wait_for_model: true },
-      }),
-      responseType: 'arraybuffer',
-    });
+    try {
+      const response = await axios({
+        url: URL,
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.REACT_APP_HUGGING_FACE_API_KEY}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        data: JSON.stringify({
+          inputs: description,
+          options: { wait_for_model: true },
+        }),
+        responseType: 'arraybuffer',
+      });
 
-    const type = response.headers['content-type'];
-    const data = response.data;
+      const type = response.headers['content-type'];
+      const data = response.data;
 
-    const base64data = Buffer.from(data).toString('base64');
-    const img = `data:${type};base64,` + base64data; 
-    setImage(img);
+      const base64data = Buffer.from(data).toString('base64');
+      const img = `data:${type};base64,` + base64data; 
+      setImage(img);
 
-    return data;
+      return data;
+    } catch (error) {
+      console.error("Error creating image:", error);
+      setMessage("Error generating image");
+      return null;
+    }
   };
 
   const uploadToPinata = async (imageData) => {
@@ -148,15 +157,29 @@ function App() {
 
     try {
       const signer = await provider.getSigner();
-      const cost = ethers.utils.parseUnits("1", "ether");
+      const address = await signer.getAddress();
+      
+      // Get the current balance
+      const balance = await provider.getBalance(address);
+      
+      // Get the cost from the contract
+      const cost = await nft.cost();
+      
+      console.log(`Minting cost: ${ethers.utils.formatEther(cost)} ETH`);
+      console.log(`User balance: ${ethers.utils.formatEther(balance)} ETH`);
 
+      // Check if the user has enough balance
+      if (balance.lt(cost)) {
+        throw new Error(`Insufficient funds. You need at least ${ethers.utils.formatEther(cost)} ETH to mint.`);
+      }
+      
       const transaction = await nft.connect(signer).mint(tokenURI, { value: cost });
       await transaction.wait();
 
       setMessage("Mint successful!");
     } catch (error) {
       console.error('Error minting NFT:', error);
-      setMessage("Mint failed");
+      setMessage(`Mint failed: ${error.message}`);
     }
   };
 
@@ -168,7 +191,7 @@ function App() {
     <div>
       <Navigation account={account} setAccount={setAccount} />
 
-      <div className='form' class='frosted-glass'>
+      <div className='form' className='frosted-glass'>
         <form onSubmit={submitHandler}>
           <input
             type="text"
